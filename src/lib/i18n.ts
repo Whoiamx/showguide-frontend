@@ -373,6 +373,18 @@ const translations = {
     languageEn: "English",
     languageEs: "Spanish",
     languagePt: "Portuguese",
+    subtitleToneLabel: "Subtitle Tone",
+    subtitleToneHelper:
+      "Refines how subtitles are written without changing the video type prompt.",
+    subtitleToneNeutralLabel: "Neutral",
+    subtitleToneNeutralDesc:
+      "Balanced default. Clear and adaptable without sounding too stiff or too casual.",
+    subtitleToneFormalLabel: "Formal",
+    subtitleToneFormalDesc:
+      "More professional and precise wording while preserving the selected template.",
+    subtitleToneCasualLabel: "Casual",
+    subtitleToneCasualDesc:
+      "Closer and lighter phrasing while keeping the same tutorial or demo structure.",
     voiceToggleLabel: "Enable AI Voice",
     voiceToggleDesc: "Generate a narrated audio track from your subtitles",
     selectVoice: "Select a voice",
@@ -381,6 +393,48 @@ const translations = {
     previewVoice: "Preview",
     voiceIncompatibleWarning: "This voice may not sound natural in the selected language",
     noVoicesForLanguage: "No voices optimized for this language. Showing all available voices.",
+    language: "Language",
+    narrationPanelTitle: "Narration Layer",
+    narrationPanelDesc:
+      "The editor keeps this narration track updated automatically and lets you review it with transcript playback.",
+    narrationStatusIdle: "Not generated",
+    narrationStatusProcessing: "Generating",
+    narrationStatusCompleted: "Ready",
+    narrationStatusFailed: "Failed",
+    narrationStatusStale: "Outdated",
+    narrationStatusLoadFailed: "Could not refresh narration status",
+    narrationReady: "Narration is ready",
+    narrationReadyLabel: "Narration ready for playback",
+    narrationPendingLabel: "Narration will become available automatically",
+    narrationVoiceMissing:
+      "This project does not have an AI voice configured from creation.",
+    narrationNeedsSubtitles:
+      "Generate subtitles first to create the narration track.",
+    generateNarration: "Generate narration",
+    regenerateNarration: "Regenerate narration",
+    generatingNarration: "Generating narration...",
+    narrationGenerationStarted: "Narration generation started",
+    narrationGenerationFailed: "Narration generation failed",
+    playNarration: "Play narration",
+    pauseNarration: "Pause narration",
+    narrationSeek: "Seek narration",
+    narrationPlaybackFailed: "Could not play the narration audio",
+    narrationGeneratedAt: "Generated at",
+    narrationTrack: "Narration",
+    muteNarration: "Mute narration",
+    unmuteNarration: "Unmute narration",
+    narrationAutoMode: "Auto",
+    narrationMutedBadge: "Muted",
+    narrationTrackDisabled: "AI voice not enabled",
+    narrationAutoPending:
+      "Narration will be generated automatically for this project.",
+    narrationStaleHint:
+      "Subtitles changed. Narration is regenerating automatically to sync audio and timings.",
+    narrationProcessingHint:
+      "ElevenLabs is generating the MP3 and word timings for this project.",
+    narrationTranscriptTitle: "Narration transcript",
+    narrationTranscriptDesc:
+      "Follow the generated voice reading your subtitles with word highlighting.",
   },
   es: {
     // Nav
@@ -756,6 +810,18 @@ const translations = {
     languageEn: "Inglés",
     languageEs: "Español",
     languagePt: "Portugués",
+    subtitleToneLabel: "Tono de subtítulos",
+    subtitleToneHelper:
+      "Ajusta cómo se redactan los subtítulos sin cambiar el prompt del tipo de video.",
+    subtitleToneNeutralLabel: "Neutral",
+    subtitleToneNeutralDesc:
+      "Default equilibrado. Claro y flexible sin sentirse demasiado rígido ni demasiado informal.",
+    subtitleToneFormalLabel: "Formal",
+    subtitleToneFormalDesc:
+      "Redacción más profesional y precisa manteniendo la lógica de la plantilla elegida.",
+    subtitleToneCasualLabel: "Casual",
+    subtitleToneCasualDesc:
+      "Lenguaje más cercano y liviano sin perder la estructura de tutorial o demo.",
     voiceToggleLabel: "Activar Voz IA",
     voiceToggleDesc: "Genera una pista de audio narrada a partir de tus subtítulos",
     selectVoice: "Selecciona una voz",
@@ -764,6 +830,49 @@ const translations = {
     previewVoice: "Escuchar",
     voiceIncompatibleWarning: "Esta voz puede no sonar natural en el idioma seleccionado",
     noVoicesForLanguage: "No hay voces optimizadas para este idioma. Mostrando todas las voces disponibles.",
+    language: "Idioma",
+    narrationPanelTitle: "Capa de narracion",
+    narrationPanelDesc:
+      "El editor mantiene esta pista de narracion actualizada automaticamente y te deja revisarla con transcript y playback.",
+    narrationStatusIdle: "Sin generar",
+    narrationStatusProcessing: "Generando",
+    narrationStatusCompleted: "Lista",
+    narrationStatusFailed: "Con error",
+    narrationStatusStale: "Desactualizada",
+    narrationStatusLoadFailed:
+      "No se pudo actualizar el estado de la narracion",
+    narrationReady: "La narracion ya esta lista",
+    narrationReadyLabel: "Narracion lista para reproducir",
+    narrationPendingLabel: "La narracion estara disponible automaticamente",
+    narrationVoiceMissing:
+      "Este proyecto no tiene una voz IA configurada desde la creacion.",
+    narrationNeedsSubtitles:
+      "Primero genera subtitulos para crear la narracion.",
+    generateNarration: "Generar narracion",
+    regenerateNarration: "Regenerar narracion",
+    generatingNarration: "Generando narracion...",
+    narrationGenerationStarted: "Se inicio la generacion de narracion",
+    narrationGenerationFailed: "Fallo la generacion de narracion",
+    playNarration: "Reproducir narracion",
+    pauseNarration: "Pausar narracion",
+    narrationSeek: "Mover narracion",
+    narrationPlaybackFailed: "No se pudo reproducir el audio de narracion",
+    narrationGeneratedAt: "Generada el",
+    narrationTrack: "Narracion",
+    muteNarration: "Mutear narracion",
+    unmuteNarration: "Activar narracion",
+    narrationAutoMode: "Auto",
+    narrationMutedBadge: "Muteada",
+    narrationTrackDisabled: "La voz IA no esta activada",
+    narrationAutoPending:
+      "La narracion se generara automaticamente para este proyecto.",
+    narrationStaleHint:
+      "Los subtitulos cambiaron. La narracion se esta regenerando automaticamente para sincronizar audio y timings.",
+    narrationProcessingHint:
+      "ElevenLabs esta generando el MP3 y los tiempos por palabra del proyecto.",
+    narrationTranscriptTitle: "Transcript de narracion",
+    narrationTranscriptDesc:
+      "Segui la voz generada leyendo tus subtitulos con resaltado por palabra.",
   },
   pt: {
     // Nav
@@ -1138,6 +1247,18 @@ const translations = {
     languageEn: "Inglês",
     languageEs: "Espanhol",
     languagePt: "Português",
+    subtitleToneLabel: "Tom das legendas",
+    subtitleToneHelper:
+      "Ajusta como as legendas são escritas sem mudar o prompt do tipo de vídeo.",
+    subtitleToneNeutralLabel: "Neutro",
+    subtitleToneNeutralDesc:
+      "Padrão equilibrado. Claro e flexível sem soar rígido demais nem casual demais.",
+    subtitleToneFormalLabel: "Formal",
+    subtitleToneFormalDesc:
+      "Redação mais profissional e precisa mantendo a lógica do template escolhido.",
+    subtitleToneCasualLabel: "Casual",
+    subtitleToneCasualDesc:
+      "Linguagem mais próxima e leve sem perder a estrutura de tutorial ou demo.",
     voiceToggleLabel: "Ativar Voz IA",
     voiceToggleDesc: "Gere uma faixa de áudio narrada a partir das suas legendas",
     selectVoice: "Selecione uma voz",
@@ -1146,6 +1267,49 @@ const translations = {
     previewVoice: "Ouvir",
     voiceIncompatibleWarning: "Esta voz pode não soar natural no idioma selecionado",
     noVoicesForLanguage: "Sem vozes otimizadas para este idioma. Mostrando todas as vozes disponíveis.",
+    language: "Idioma",
+    narrationPanelTitle: "Camada de narracao",
+    narrationPanelDesc:
+      "O editor mantem esta faixa de narracao atualizada automaticamente e permite revisar tudo com transcript e playback.",
+    narrationStatusIdle: "Nao gerada",
+    narrationStatusProcessing: "Gerando",
+    narrationStatusCompleted: "Pronta",
+    narrationStatusFailed: "Com erro",
+    narrationStatusStale: "Desatualizada",
+    narrationStatusLoadFailed:
+      "Nao foi possivel atualizar o status da narracao",
+    narrationReady: "A narracao esta pronta",
+    narrationReadyLabel: "Narracao pronta para reproduzir",
+    narrationPendingLabel: "A narracao ficara disponivel automaticamente",
+    narrationVoiceMissing:
+      "Este projeto nao tem uma voz de IA configurada desde a criacao.",
+    narrationNeedsSubtitles:
+      "Primeiro gere legendas para criar a narracao.",
+    generateNarration: "Gerar narracao",
+    regenerateNarration: "Gerar novamente",
+    generatingNarration: "Gerando narracao...",
+    narrationGenerationStarted: "A geracao da narracao foi iniciada",
+    narrationGenerationFailed: "Falha ao gerar a narracao",
+    playNarration: "Reproduzir narracao",
+    pauseNarration: "Pausar narracao",
+    narrationSeek: "Mover narracao",
+    narrationPlaybackFailed: "Nao foi possivel reproduzir o audio da narracao",
+    narrationGeneratedAt: "Gerada em",
+    narrationTrack: "Narracao",
+    muteNarration: "Mutar narracao",
+    unmuteNarration: "Ativar narracao",
+    narrationAutoMode: "Auto",
+    narrationMutedBadge: "Mutada",
+    narrationTrackDisabled: "A voz IA nao esta ativada",
+    narrationAutoPending:
+      "A narracao sera gerada automaticamente para este projeto.",
+    narrationStaleHint:
+      "As legendas mudaram. A narracao esta sendo regenerada automaticamente para sincronizar audio e timings.",
+    narrationProcessingHint:
+      "A ElevenLabs esta gerando o MP3 e os tempos por palavra deste projeto.",
+    narrationTranscriptTitle: "Transcript da narracao",
+    narrationTranscriptDesc:
+      "Acompanhe a voz gerada lendo suas legendas com destaque palavra por palavra.",
   },
 } as const;
 

@@ -7,7 +7,9 @@ import { getApiUrl } from "@/lib/api";
 import { formatDuration, formatFileSize } from "@/lib/format";
 import { readErrorMessage } from "@/lib/http";
 import { useI18n } from "@/lib/i18n-context";
+import { getComposedSubtitleLayout } from "@/lib/subtitle-composition";
 import Timeline from "./timeline";
+import NarrationPanel from "./narration-panel";
 import SubtitleStylePanel from "./subtitle-style-panel";
 import ProcessingScreen, {
   type ProcessingStepInfo,
@@ -17,8 +19,11 @@ import {
   defaultSubtitleStyle,
   defaultVideoEdits,
   type SubtitleStyle,
+  type SubtitleTone,
   type Marker,
+  type SubtitleWord,
   type VideoEdits,
+  type VoiceStatus,
 } from "@/lib/project-types";
 import { useToast } from "@/lib/toast-context";
 import { useConfirm } from "@/lib/confirm-dialog";
@@ -42,6 +47,7 @@ interface Subtitle {
   startTime: number;
   endTime: number;
   text: string;
+  words?: SubtitleWord[];
 }
 
 interface Project {
@@ -50,6 +56,13 @@ interface Project {
   status: string;
   template: string | null;
   language: string | null;
+  subtitleTone: SubtitleTone;
+  voiceEnabled: boolean;
+  voiceId: string | null;
+  voiceStatus: VoiceStatus | string | null;
+  voiceError: string | null;
+  voiceAudioUrl: string | null;
+  voiceGeneratedAt: string | null;
   subtitleStyle: SubtitleStyle | null;
   markers: Marker[] | null;
   videoEdits: VideoEdits | null;
@@ -106,6 +119,19 @@ function findActiveSubtitle(
   return null;
 }
 
+function getNarrationStatusLabel(
+  status: VoiceStatus | string | null | undefined,
+  t: Record<string, string>,
+  isConfigured = true,
+) {
+  if (!isConfigured) return t.narrationTrackDisabled || "AI voice not enabled";
+  if (status === "completed") return t.narrationStatusCompleted;
+  if (status === "processing") return t.narrationStatusProcessing;
+  if (status === "failed") return t.narrationStatusFailed;
+  if (status === "stale") return t.narrationStatusStale;
+  return t.narrationStatusIdle;
+}
+
 // ─── Subtitle Overlay on Video ───────────────────────────────────────
 function SubtitleOverlay({
   subtitles,
@@ -117,13 +143,16 @@ function SubtitleOverlay({
   style: SubtitleStyle;
 }) {
   const [activeText, setActiveText] = useState<string | null>(null);
-  const [prevText, setPrevText] = useState<string | null>(null);
   const [animKey, setAnimKey] = useState(0);
+  const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || subtitles.length === 0) return;
+    if (!video || subtitles.length === 0) {
+      setActiveText(null);
+      return;
+    }
 
     function tick() {
       const t = video!.currentTime;
@@ -131,7 +160,6 @@ function SubtitleOverlay({
       setActiveText((prev) => {
         const next = active?.text ?? null;
         if (next !== prev) {
-          setPrevText(prev);
           setAnimKey((k) => k + 1);
         }
         return next;
@@ -143,13 +171,45 @@ function SubtitleOverlay({
     return () => cancelAnimationFrame(rafRef.current);
   }, [subtitles, videoRef]);
 
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    function syncVideoSize() {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const nextWidth = Math.round(video.clientWidth);
+      const nextHeight = Math.round(video.clientHeight);
+
+      setVideoSize((prev) =>
+        prev.width === nextWidth && prev.height === nextHeight
+          ? prev
+          : { width: nextWidth, height: nextHeight },
+      );
+    }
+
+    syncVideoSize();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(syncVideoSize);
+      resizeObserver.observe(videoRef.current);
+    }
+
+    window.addEventListener("resize", syncVideoSize);
+    document.addEventListener("fullscreenchange", syncVideoSize);
+    videoRef.current.addEventListener("loadedmetadata", syncVideoSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", syncVideoSize);
+      document.removeEventListener("fullscreenchange", syncVideoSize);
+      videoRef.current?.removeEventListener("loadedmetadata", syncVideoSize);
+    };
+  }, [videoRef]);
+
   if (!activeText) return null;
 
-  const bgHex =
-    style.backgroundColor +
-    Math.round(style.backgroundOpacity * 255)
-      .toString(16)
-      .padStart(2, "0");
   const animClass =
     style.animation === "fade"
       ? "animate-sub-fade"
@@ -158,21 +218,48 @@ function SubtitleOverlay({
         : style.animation === "typewriter"
           ? "animate-sub-type"
           : "";
+  const frameWidth = videoSize.width || 0;
+  const frameHeight = videoSize.height || 0;
+  const layout = getComposedSubtitleLayout(style, activeText, frameWidth || 960, frameHeight || 540);
 
   return (
-    <div className="absolute bottom-12 left-0 right-0 z-10 flex justify-center pointer-events-none px-4">
+    <div className="pointer-events-none absolute inset-0 z-10 select-none">
       <div
-        key={animKey}
-        className={`font-medium px-4 py-2 rounded-lg max-w-[85%] text-center leading-relaxed shadow-lg ${animClass}`}
+        className="absolute left-1/2 top-1/2 flex items-end justify-center"
         style={{
-          fontFamily: style.fontFamily,
-          fontSize: `${style.fontSize}px`,
-          color: style.textColor,
-          backgroundColor: style.showBackground ? bgHex : "transparent",
-          backdropFilter: style.showBackground ? "blur(8px)" : "none",
+          width: frameWidth ? `${frameWidth}px` : "100%",
+          height: frameHeight ? `${frameHeight}px` : "100%",
+          transform: "translate(-50%, -50%)",
         }}
       >
-        {activeText}
+        <div className="flex w-full justify-center" style={{ paddingBottom: `${layout.bottomOffset}px` }}>
+          <div
+            key={animKey}
+            className={`text-center font-semibold ${animClass}`}
+            style={{
+              maxWidth: `${layout.maxWidth}px`,
+              padding: `${layout.paddingY}px ${layout.paddingX}px`,
+              borderRadius: `${layout.borderRadius}px`,
+              fontFamily: style.fontFamily,
+              fontSize: `${layout.fontSize}px`,
+              lineHeight: layout.lineHeight,
+              letterSpacing: layout.letterSpacing,
+              color: style.textColor,
+              background: layout.background,
+              border: layout.border,
+              boxShadow: layout.boxShadow,
+              textShadow: layout.textShadow,
+              backdropFilter: layout.backdropFilter,
+              WebkitBackdropFilter: layout.backdropFilter,
+            }}
+          >
+            {layout.lines.map((line, index) => (
+              <span key={`${animKey}-${index}`} className="block">
+                {line}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -432,6 +519,9 @@ export default function ProjectDetail() {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [videoEdits, setVideoEdits] = useState<VideoEdits>(defaultVideoEdits);
   const [savingProject, setSavingProject] = useState(false);
+  const [subtitlesVisible, setSubtitlesVisible] = useState(true);
+  const [videoVisible, setVideoVisible] = useState(true);
+  const [narrationMuted, setNarrationMuted] = useState(false);
 
   // Undo/redo for editor state
   interface EditorSnapshot {
@@ -783,6 +873,13 @@ export default function ProjectDetail() {
 
   function handleSubtitleUpdated(updated: Subtitle) {
     if (!project) return;
+    const previous = project.subtitles.find((subtitle) => subtitle.id === updated.id);
+    const shouldMarkNarrationStale =
+      !!previous &&
+      previous.text !== updated.text &&
+      project.voiceEnabled &&
+      !!project.voiceId &&
+      (project.voiceStatus === "completed" || !!project.voiceAudioUrl);
     const newSubs = project.subtitles.map((s) =>
       s.id === updated.id
         ? {
@@ -790,17 +887,36 @@ export default function ProjectDetail() {
             text: updated.text,
             startTime: updated.startTime,
             endTime: updated.endTime,
+            words: updated.words ?? s.words,
           }
         : s,
     );
-    setProject({ ...project, subtitles: newSubs });
+    setProject({
+      ...project,
+      subtitles: newSubs,
+      voiceStatus: shouldMarkNarrationStale ? "stale" : project.voiceStatus,
+      voiceError: shouldMarkNarrationStale
+        ? t.narrationStaleHint
+        : project.voiceError,
+    });
     undoRedo.set({ subtitles: newSubs, markers, videoEdits });
   }
 
   async function handleSubtitleDeleted(id: string) {
     if (!project) return;
     const newSubs = project.subtitles.filter((s) => s.id !== id);
-    setProject({ ...project, subtitles: newSubs });
+    const shouldMarkNarrationStale =
+      project.voiceEnabled &&
+      !!project.voiceId &&
+      (project.voiceStatus === "completed" || !!project.voiceAudioUrl);
+    setProject({
+      ...project,
+      subtitles: newSubs,
+      voiceStatus: shouldMarkNarrationStale ? "stale" : project.voiceStatus,
+      voiceError: shouldMarkNarrationStale
+        ? t.narrationStaleHint
+        : project.voiceError,
+    });
     undoRedo.set({ subtitles: newSubs, markers, videoEdits });
     toast(t.subtitleDeleted || "Subtitle deleted");
 
@@ -899,6 +1015,23 @@ export default function ProjectDetail() {
 
   function handleRedo() {
     undoRedo.redo();
+  }
+
+  function handleVoiceStateChange(
+    changes: Partial<
+      Pick<
+        Project,
+        | "voiceEnabled"
+        | "voiceId"
+        | "voiceStatus"
+        | "voiceError"
+        | "voiceAudioUrl"
+        | "voiceGeneratedAt"
+        | "subtitles"
+      >
+    >,
+  ) {
+    setProject((prev) => (prev ? { ...prev, ...changes } : prev));
   }
 
   // Keep UI in sync with undo/redo current
@@ -1159,24 +1292,6 @@ export default function ProjectDetail() {
             )}
           </div>
         </div>
-        <button
-          onClick={handleDelete}
-          className="flex items-center gap-1.5 text-sm text-surface-500 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/8 transition-all"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-          </svg>
-          {t.deleteProject}
-        </button>
       </div>
 
       {/* Main content: Video + Subtitles side by side */}
@@ -1193,10 +1308,24 @@ export default function ProjectDetail() {
               <video
                 ref={videoRef}
                 controls
-                className={isFullscreen ? "max-h-screen max-w-full" : "w-full"}
+                className={`transition-opacity ${
+                  isFullscreen ? "max-h-screen max-w-full" : "w-full"
+                } ${videoVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 src={getApiUrl(`/api/videos/${project.video!.id}`)}
               />
-              {hasSubtitles && (
+              {!videoVisible && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface-950/92">
+                  <div className="rounded-2xl border border-surface-800 bg-surface-900/70 px-4 py-3 text-center backdrop-blur-sm">
+                    <p className="text-sm font-medium text-surface-200">
+                      {t.videoTrack || "Video"}
+                    </p>
+                    <p className="mt-1 text-xs text-surface-500">
+                      {t.trackHidden || "Track hidden"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {hasSubtitles && subtitlesVisible && (
                 <SubtitleOverlay
                   subtitles={project.subtitles}
                   videoRef={videoRef}
@@ -1206,7 +1335,7 @@ export default function ProjectDetail() {
               {/* Custom fullscreen button */}
               <button
                 onClick={toggleFullscreen}
-                className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-lg bg-black/60 hover:bg-black/80 text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/60 text-white/80 opacity-100 transition-opacity hover:bg-black/80 hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
                 title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
                 aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
               >
@@ -1270,6 +1399,93 @@ export default function ProjectDetail() {
               </span>
             </div>
 
+            <div className="mt-4 lg:hidden">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-surface-800 bg-surface-900/70 p-2">
+                <button
+                  type="button"
+                  onClick={() => setVideoVisible((current) => !current)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                    videoVisible
+                      ? "border-surface-700 bg-surface-800 text-surface-200"
+                      : "border-surface-800 bg-surface-950 text-surface-500"
+                  }`}
+                  aria-label={videoVisible ? t.trackVisible : t.trackHidden}
+                >
+                  {videoVisible ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  )}
+                  {t.videoTrack || "Video"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSubtitlesVisible((current) => !current)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                    subtitlesVisible
+                      ? "border-surface-700 bg-surface-800 text-surface-200"
+                      : "border-surface-800 bg-surface-950 text-surface-500"
+                  }`}
+                  aria-label={subtitlesVisible ? t.trackVisible : t.trackHidden}
+                >
+                  {subtitlesVisible ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  )}
+                  {t.captionsTrack || "Captions"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setNarrationMuted((current) => !current)}
+                  disabled={!project.voiceEnabled || !project.voiceId}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                    narrationMuted
+                      ? "border-surface-800 bg-surface-950 text-surface-500"
+                      : "border-surface-700 bg-surface-800 text-surface-200"
+                  } disabled:cursor-not-allowed disabled:border-surface-800 disabled:bg-surface-950 disabled:text-surface-600`}
+                  aria-label={narrationMuted ? (t.unmuteNarration || "Unmute narration") : (t.muteNarration || "Mute narration")}
+                >
+                  {narrationMuted ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <path d="M15.5 8.5a5 5 0 010 7" />
+                      <path d="M19 5a10 10 0 010 14" />
+                    </svg>
+                  )}
+                  {t.narrationTrack || "Narration"}
+                </button>
+
+                <span className="inline-flex items-center rounded-full border border-surface-800 bg-surface-950 px-2.5 py-1 text-[11px] font-medium text-surface-400">
+                  {getNarrationStatusLabel(
+                    project.voiceStatus,
+                    t,
+                    project.voiceEnabled && !!project.voiceId,
+                  )}
+                </span>
+              </div>
+            </div>
+
             {/* Timeline */}
             {hasSubtitles && project.video && project.video.duration > 0 && (
               <Timeline
@@ -1282,6 +1498,11 @@ export default function ProjectDetail() {
                 videoEdits={videoEdits}
                 videoFileName={project.video.fileName || "video"}
                 subtitleStyle={subtitleStyle}
+                voiceEnabled={project.voiceEnabled && !!project.voiceId}
+                voiceStatus={project.voiceStatus}
+                captionsVisible={subtitlesVisible}
+                videoTrackVisible={videoVisible}
+                narrationMuted={narrationMuted}
                 canUndo={undoRedo.canUndo}
                 canRedo={undoRedo.canRedo}
                 onUndo={handleUndo}
@@ -1292,9 +1513,30 @@ export default function ProjectDetail() {
                 onSelectSubtitle={(id) => setActiveSubId(id)}
                 onMarkersChange={handleMarkersChange}
                 onVideoEditsChange={handleVideoEditsChange}
+                onCaptionsVisibleChange={setSubtitlesVisible}
+                onVideoTrackVisibleChange={setVideoVisible}
+                onNarrationMutedChange={setNarrationMuted}
                 onStyleOpen={() => setStyleOpen(!styleOpen)}
                 t={t}
               />
+            )}
+
+            {hasSubtitles && (
+              <div className="mt-6">
+                <NarrationPanel
+                  projectId={project.id}
+                  voiceEnabled={project.voiceEnabled}
+                  voiceId={project.voiceId}
+                  voiceStatus={project.voiceStatus}
+                  voiceError={project.voiceError}
+                  voiceAudioUrl={project.voiceAudioUrl}
+                  voiceGeneratedAt={project.voiceGeneratedAt}
+                  subtitles={project.subtitles}
+                  isMuted={narrationMuted}
+                  onVoiceStateChange={handleVoiceStateChange}
+                  t={t}
+                />
+              </div>
             )}
           </div>
 
@@ -1311,7 +1553,7 @@ export default function ProjectDetail() {
                     </span>
                   </h2>
                 </div>
-                <div className="flex-1 overflow-y-auto max-h-[calc(100vh-540px)] min-h-50 space-y-1 pr-1 scrollbar-thin">
+                <div className="flex-1 overflow-y-auto max-h-none min-h-50 space-y-1 pr-1 scrollbar-thin lg:max-h-[calc(100vh-540px)]">
                   {project.subtitles.map((sub, idx) => (
                     <SubtitleRow
                       key={sub.id}

@@ -7,6 +7,7 @@ import { getApiUrl } from "@/lib/api";
 import { useI18n } from "@/lib/i18n-context";
 import { formatFileSize, formatDuration } from "@/lib/format";
 import { readErrorMessage } from "@/lib/http";
+import type { SubtitleTone } from "@/lib/project-types";
 
 type InputMode = "upload" | "record";
 type RecorderState = "idle" | "recording" | "paused" | "recorded";
@@ -27,6 +28,7 @@ export default function NewProject() {
     "tutorial",
   );
   const [language, setLanguage] = useState<"en" | "es" | "pt">("en");
+  const [subtitleTone, setSubtitleTone] = useState<SubtitleTone>("neutral");
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [voices, setVoices] = useState<
@@ -412,6 +414,7 @@ export default function NewProject() {
           title: title.trim(),
           template,
           language,
+          subtitleTone,
           voiceEnabled,
           ...(voiceEnabled && voiceId ? { voiceId } : {}),
         }),
@@ -503,6 +506,24 @@ export default function NewProject() {
           <path d="M10 9l4 2-4 2V9z" fill="currentColor" />
         </svg>
       ),
+    },
+  ];
+
+  const toneOptions = [
+    {
+      id: "neutral" as const,
+      label: t.subtitleToneNeutralLabel,
+      description: t.subtitleToneNeutralDesc,
+    },
+    {
+      id: "formal" as const,
+      label: t.subtitleToneFormalLabel,
+      description: t.subtitleToneFormalDesc,
+    },
+    {
+      id: "casual" as const,
+      label: t.subtitleToneCasualLabel,
+      description: t.subtitleToneCasualDesc,
     },
   ];
 
@@ -1025,6 +1046,60 @@ export default function NewProject() {
               >
                 <span className="text-xs font-bold opacity-60">{lang.flag}</span>
                 {lang.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Subtitle tone */}
+        <div>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <label className="block text-sm font-medium text-surface-300">
+                {t.subtitleToneLabel}
+              </label>
+              <p className="text-xs text-surface-500 mt-1">
+                {t.subtitleToneHelper}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {toneOptions.map((tone) => (
+              <button
+                key={tone.id}
+                type="button"
+                onClick={() => setSubtitleTone(tone.id)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+                  subtitleTone === tone.id
+                    ? "border-brand-500/50 bg-brand-500/8 ring-1 ring-brand-500/20"
+                    : "border-surface-700 bg-surface-900/50 hover:border-surface-600 hover:bg-surface-800/50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                      subtitleTone === tone.id
+                        ? "border-brand-400 bg-brand-400"
+                        : "border-surface-600"
+                    }`}
+                  >
+                    {subtitleTone === tone.id && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <span
+                      className={`block text-sm font-semibold ${
+                        subtitleTone === tone.id ? "text-brand-300" : "text-surface-200"
+                      }`}
+                    >
+                      {tone.label}
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed text-surface-500">
+                      {tone.description}
+                    </span>
+                  </div>
+                </div>
               </button>
             ))}
           </div>

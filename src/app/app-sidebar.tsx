@@ -212,15 +212,15 @@ export function AppSidebar() {
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="px-5 h-[72px] flex items-center gap-2.5 shrink-0">
+      {/* Logo header */}
+      <div className="px-4 lg:px-5 h-14 lg:h-[72px] flex items-center justify-between shrink-0">
         <Link
           href="/"
-          className="flex items-center gap-2.5 group"
+          className="flex items-center gap-2 lg:gap-2.5 group"
           onClick={() => setMobileOpen(false)}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+          <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow shrink-0">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="lg:w-5 lg:h-5">
               <rect
                 x="4"
                 y="4"
@@ -251,16 +251,26 @@ export function AppSidebar() {
               />
             </svg>
           </div>
-          <span className="text-lg font-bold text-surface-100 tracking-tight">
+          <span className="text-base lg:text-lg font-bold text-surface-100 tracking-tight">
             Showguide
           </span>
         </Link>
+        {/* Close — inside sidebar header, mobile only */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden p-1.5 -mr-1 rounded-lg text-surface-500 hover:text-surface-200 hover:bg-surface-800 transition-colors"
+          aria-label="Close menu"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <div className="mx-4 border-t border-surface-700/60" />
+      <div className="mx-3 lg:mx-4 border-t border-surface-700/60" />
 
       {/* Nav items */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-2.5 lg:px-3 py-3 lg:py-4 space-y-0.5 lg:space-y-1">
         {navItems.map((item) => {
           const active = isActive(item);
           return (
@@ -268,7 +278,7 @@ export function AppSidebar() {
               key={item.labelKey}
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+              className={`group relative flex items-center gap-2.5 lg:gap-3 px-3 py-2 lg:py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                 active
                   ? "bg-brand-500/10 text-brand-400"
                   : "text-surface-400 hover:text-surface-200 hover:bg-surface-800/50"
@@ -289,13 +299,13 @@ export function AppSidebar() {
       </nav>
 
       {/* Bottom section */}
-      <div className="px-3 pb-4 shrink-0 space-y-3">
+      <div className="px-2.5 lg:px-3 pb-3 lg:pb-4 shrink-0 space-y-2 lg:space-y-3">
         <div className="mx-1 border-t border-surface-700/60" />
 
         {/* Language selector */}
         <div className="px-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-600 mb-1.5 px-2">
-            Language
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-surface-600 mb-1 lg:mb-1.5 px-2">
+            {t.language}
           </p>
           <SidebarLanguageSelector locale={locale} setLocale={setLocale} />
         </div>
@@ -306,8 +316,8 @@ export function AppSidebar() {
         <div className="mx-1 border-t border-surface-700/60" />
 
         {/* User avatar */}
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-800/40 transition-colors cursor-pointer group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shadow-md group-hover:shadow-brand-500/30 transition-shadow">
+        <div className="flex items-center gap-2.5 lg:gap-3 px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-lg hover:bg-surface-800/40 transition-colors cursor-pointer group">
+          <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-xs font-bold shadow-md group-hover:shadow-brand-500/30 transition-shadow shrink-0">
             G
           </div>
           <div className="flex-1 min-w-0">
@@ -325,38 +335,18 @@ export function AppSidebar() {
 
   return (
     <>
-      {/* Mobile hamburger button */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-[60] p-2.5 rounded-lg bg-surface-900 border border-surface-700/60 text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-all shadow-lg"
-        aria-label="Toggle menu"
-      >
-        {mobileOpen ? (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
+      {/* Mobile hamburger — only when sidebar is closed */}
+      {!mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-[60] p-2.5 rounded-lg bg-surface-900 border border-surface-700/60 text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-all shadow-lg"
+          aria-label="Open menu"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
-        )}
-      </button>
+        </button>
+      )}
 
       {/* Mobile overlay */}
       {mobileOpen && (

@@ -1,4 +1,6 @@
 export type SubtitleAnimationType = "none" | "fade" | "slide" | "typewriter";
+export const subtitleToneOptions = ["neutral", "formal", "casual"] as const;
+export type SubtitleTone = (typeof subtitleToneOptions)[number];
 
 export interface SubtitleStyle {
   fontFamily: string;
@@ -11,11 +13,11 @@ export interface SubtitleStyle {
 }
 
 export const defaultSubtitleStyle: SubtitleStyle = {
-  fontFamily: "Inter",
-  fontSize: 24,
+  fontFamily: "Arial",
+  fontSize: 22,
   textColor: "#ffffff",
   backgroundColor: "#000000",
-  backgroundOpacity: 0.75,
+  backgroundOpacity: 0.62,
   showBackground: true,
   animation: "none",
 };
@@ -39,6 +41,15 @@ export const defaultVideoEdits: VideoEdits = {
   trimEnd: null,
   deletedSections: [],
 };
+
+export interface SubtitleWord {
+  word: string;
+  startTime: number;
+  endTime: number;
+  index: number;
+}
+
+export type VoiceStatus = "idle" | "processing" | "completed" | "failed" | "stale";
 
 export const planCodes = ["trial", "plus", "teams", "pro"] as const;
 export type PlanCode = (typeof planCodes)[number];

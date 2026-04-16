@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
-import type { Marker, VideoEdits, SubtitleStyle } from "@/lib/project-types";
+import type {
+  Marker,
+  VideoEdits,
+  SubtitleStyle,
+  VoiceStatus,
+} from "@/lib/project-types";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Subtitle {
@@ -23,6 +28,11 @@ interface TimelineProps {
   videoEdits: VideoEdits;
   videoFileName: string;
   subtitleStyle: SubtitleStyle;
+  voiceEnabled: boolean;
+  voiceStatus: VoiceStatus | string | null;
+  captionsVisible: boolean;
+  videoTrackVisible: boolean;
+  narrationMuted: boolean;
   // Undo/redo
   canUndo: boolean;
   canRedo: boolean;
@@ -35,6 +45,9 @@ interface TimelineProps {
   onSelectSubtitle: (id: string | null) => void;
   onMarkersChange: (markers: Marker[]) => void;
   onVideoEditsChange: (edits: VideoEdits) => void;
+  onCaptionsVisibleChange: (visible: boolean) => void;
+  onVideoTrackVisibleChange: (visible: boolean) => void;
+  onNarrationMutedChange: (muted: boolean) => void;
   onStyleOpen: () => void;
   t: Record<string, string>;
 }
@@ -99,6 +112,34 @@ function isInDeletedSection(time: number, deletedSections: { start: number; end:
   return deletedSections.some((s) => time >= s.start && time < s.end);
 }
 
+function getNarrationTrackLabel(
+  voiceEnabled: boolean,
+  voiceStatus: string | null | undefined,
+  t: Record<string, string>,
+) {
+  if (!voiceEnabled) {
+    return t.narrationTrackDisabled || "AI voice not enabled";
+  }
+
+  if (voiceStatus === "processing") {
+    return t.narrationStatusProcessing || "Generating";
+  }
+
+  if (voiceStatus === "completed") {
+    return t.narrationStatusCompleted || "Ready";
+  }
+
+  if (voiceStatus === "stale") {
+    return t.narrationStatusStale || "Outdated";
+  }
+
+  if (voiceStatus === "failed") {
+    return t.narrationStatusFailed || "Failed";
+  }
+
+  return t.narrationStatusIdle || "Not generated";
+}
+
 // ─── SVG Icons ───────────────────────────────────────────────────────
 const icons = {
   undo: (
@@ -151,6 +192,20 @@ const icons = {
   marker: (
     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2v20M5 12h14" />
+    </svg>
+  ),
+  volume2: (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.5 8.5a5 5 0 010 7" />
+      <path d="M19 5a10 10 0 010 14" />
+    </svg>
+  ),
+  volumeX: (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
     </svg>
   ),
   style: (
@@ -206,6 +261,11 @@ export default function Timeline({
   videoEdits,
   videoFileName,
   subtitleStyle,
+  voiceEnabled,
+  voiceStatus,
+  captionsVisible,
+  videoTrackVisible,
+  narrationMuted,
   canUndo,
   canRedo,
   onUndo,
@@ -216,6 +276,9 @@ export default function Timeline({
   onSelectSubtitle,
   onMarkersChange,
   onVideoEditsChange,
+  onCaptionsVisibleChange,
+  onVideoTrackVisibleChange,
+  onNarrationMutedChange,
   onStyleOpen,
   t,
 }: TimelineProps) {
@@ -229,8 +292,6 @@ export default function Timeline({
   const [selectedSection, setSelectedSection] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<{ id: string; start: number; end: number } | null>(null);
-  const [captionsVisible, setCaptionsVisible] = useState(true);
-  const [videoTrackVisible, setVideoTrackVisible] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; time: number } | null>(null);
   const rafRef = useRef<number>(0);
 
@@ -659,7 +720,23 @@ export default function Timeline({
   }
 
   const maxZoom = videoDuration / MAX_ZOOM_SECONDS;
-  const totalTimelineHeight = RULER_HEIGHT + MARKER_AREA_HEIGHT + TRACK_HEIGHT * 2 + 8;
+  const narrationTrackTop = RULER_HEIGHT + MARKER_AREA_HEIGHT;
+  const captionsTrackTop = narrationTrackTop + TRACK_HEIGHT;
+  const videoTrackTop = captionsTrackTop + TRACK_HEIGHT;
+  const totalTimelineHeight =
+    RULER_HEIGHT + MARKER_AREA_HEIGHT + TRACK_HEIGHT * 3 + 12;
+  const narrationTrackTone = !voiceEnabled
+    ? "border-surface-700 bg-surface-900/40"
+    : voiceStatus === "completed"
+      ? "border-emerald-500/25 bg-emerald-500/10"
+      : voiceStatus === "processing"
+        ? "border-amber-500/25 bg-amber-500/10"
+        : voiceStatus === "stale"
+          ? "border-orange-500/25 bg-orange-500/10"
+          : voiceStatus === "failed"
+            ? "border-red-500/25 bg-red-500/10"
+            : "border-surface-700 bg-surface-900/50";
+  const narrationTrackLabel = getNarrationTrackLabel(voiceEnabled, voiceStatus, t);
 
   return (
     <div className="hidden lg:block mt-4 select-none touch-manipulation">
@@ -720,17 +797,45 @@ export default function Timeline({
       <div className="flex border border-surface-800 rounded-lg bg-surface-900/60 overflow-hidden">
         {/* ─── Track Labels (left) ────────────────────────────────── */}
         <div className="shrink-0 border-r border-surface-800" style={{ width: LABEL_WIDTH }}>
-          {/* Ruler spacer + marker area */}
-          <div style={{ height: RULER_HEIGHT + MARKER_AREA_HEIGHT }} className="border-b border-surface-800/50" />
+          <div
+            style={{ height: RULER_HEIGHT + MARKER_AREA_HEIGHT }}
+            className="border-b border-surface-800/50"
+          />
 
-          {/* Captions track label */}
+          <div
+            className="flex items-center gap-1.5 px-2 border-b border-surface-800/50"
+            style={{ height: TRACK_HEIGHT }}
+          >
+            <span className="text-[10px] text-surface-600 font-mono w-3">3</span>
+            <button
+              onClick={() => onNarrationMutedChange(!narrationMuted)}
+              disabled={!voiceEnabled}
+              className="text-surface-500 hover:text-surface-300 transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:outline-none rounded disabled:text-surface-700 disabled:cursor-not-allowed"
+              title={
+                narrationMuted
+                  ? t.unmuteNarration || "Unmute narration"
+                  : t.muteNarration || "Mute narration"
+              }
+              aria-label={
+                narrationMuted
+                  ? t.unmuteNarration || "Unmute narration"
+                  : t.muteNarration || "Mute narration"
+              }
+            >
+              {narrationMuted ? icons.volumeX : icons.volume2}
+            </button>
+            <span className="text-[11px] text-surface-400 font-medium truncate">
+              {t.narrationTrack || "Narration"}
+            </span>
+          </div>
+
           <div
             className="flex items-center gap-1.5 px-2 border-b border-surface-800/50"
             style={{ height: TRACK_HEIGHT }}
           >
             <span className="text-[10px] text-surface-600 font-mono w-3">2</span>
             <button
-              onClick={() => setCaptionsVisible(!captionsVisible)}
+              onClick={() => onCaptionsVisibleChange(!captionsVisible)}
               className="text-surface-500 hover:text-surface-300 transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:outline-none rounded"
               title={captionsVisible ? (t.trackVisible || "Visible") : (t.trackHidden || "Hidden")}
               aria-label={captionsVisible ? (t.trackVisible || "Hide captions track") : (t.trackHidden || "Show captions track")}
@@ -742,14 +847,10 @@ export default function Timeline({
             </span>
           </div>
 
-          {/* Video track label */}
-          <div
-            className="flex items-center gap-1.5 px-2"
-            style={{ height: TRACK_HEIGHT }}
-          >
+          <div className="flex items-center gap-1.5 px-2" style={{ height: TRACK_HEIGHT }}>
             <span className="text-[10px] text-surface-600 font-mono w-3">1</span>
             <button
-              onClick={() => setVideoTrackVisible(!videoTrackVisible)}
+              onClick={() => onVideoTrackVisibleChange(!videoTrackVisible)}
               className="text-surface-500 hover:text-surface-300 transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:outline-none rounded"
               title={videoTrackVisible ? (t.trackVisible || "Visible") : (t.trackHidden || "Hidden")}
               aria-label={videoTrackVisible ? (t.trackVisible || "Hide video track") : (t.trackHidden || "Show video track")}
@@ -855,10 +956,74 @@ export default function Timeline({
             </div>
 
             {/* ─── Captions Track ──────────────────────────────────── */}
+            <div
+              className="absolute left-0 right-0 border-b border-surface-800/50"
+              style={{ top: narrationTrackTop, height: TRACK_HEIGHT }}
+            >
+              <div
+                className={`absolute inset-x-0 top-1 bottom-1 rounded border transition-colors ${narrationTrackTone}`}
+              />
+              {voiceEnabled ? (
+                <>
+                  <div className="absolute inset-y-0 right-2 flex items-center">
+                    <span className="rounded-full border border-surface-700 bg-surface-950/80 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-surface-400">
+                      {narrationTrackLabel}
+                    </span>
+                  </div>
+                  {subtitles.map((sub) => {
+                    const leftPx = timeToX(sub.startTime);
+                    const widthPx = timeToX(sub.endTime) - leftPx;
+                    const isActive = activeSubId === sub.id;
+
+                    return (
+                      <button
+                        key={`narration-${sub.id}`}
+                        type="button"
+                        className={`absolute rounded border text-left transition-colors ${
+                          narrationMuted
+                            ? "border-surface-600/50 bg-surface-700/20"
+                            : voiceStatus === "completed"
+                              ? "border-emerald-400/35 bg-emerald-500/18"
+                              : voiceStatus === "processing"
+                                ? "border-amber-400/35 bg-amber-500/16"
+                                : voiceStatus === "stale"
+                                  ? "border-orange-400/35 bg-orange-500/16"
+                                  : voiceStatus === "failed"
+                                    ? "border-red-400/35 bg-red-500/16"
+                                    : "border-surface-600/50 bg-surface-700/20"
+                        } ${isActive ? "ring-1 ring-brand-400/40" : ""}`}
+                        style={{
+                          left: leftPx,
+                          width: Math.max(widthPx, 4),
+                          top: 6,
+                          height: TRACK_HEIGHT - 12,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleBlockClick(sub);
+                        }}
+                        title={`${t.narrationTrack || "Narration"} - ${sub.text}`}
+                      >
+                        {widthPx >= MIN_BLOCK_TEXT_WIDTH && (
+                          <span className="block px-2 text-[10px] leading-[24px] text-surface-200/80 truncate">
+                            {sub.text}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[10px] text-surface-500">
+                  {narrationTrackLabel}
+                </div>
+              )}
+            </div>
+
             {captionsVisible && (
               <div
                 className="absolute left-0 right-0 border-b border-surface-800/50"
-                style={{ top: RULER_HEIGHT + MARKER_AREA_HEIGHT, height: TRACK_HEIGHT }}
+                style={{ top: captionsTrackTop, height: TRACK_HEIGHT }}
               >
                 {subtitles.map((sub) => {
                   const isPreview = dragPreview?.id === sub.id;
@@ -923,7 +1088,7 @@ export default function Timeline({
             {videoTrackVisible && (
               <div
                 className="absolute left-0 right-0"
-                style={{ top: RULER_HEIGHT + MARKER_AREA_HEIGHT + TRACK_HEIGHT, height: TRACK_HEIGHT }}
+                style={{ top: videoTrackTop, height: TRACK_HEIGHT }}
               >
                 {/* Full video bar */}
                 <div

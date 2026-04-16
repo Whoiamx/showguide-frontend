@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SubtitleStyle } from "@/lib/project-types";
+import { getComposedSubtitleLayout } from "@/lib/subtitle-composition";
 
 const FONT_OPTIONS = [
   { value: "Inter", label: "Inter" },
@@ -37,6 +38,9 @@ export default function SubtitleStylePanel({
   t,
 }: SubtitleStylePanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const previewText =
+    t.previewText || "Subtitle composition now feels cleaner and more natural on video";
+  const previewLayout = getComposedSubtitleLayout(style, previewText, 320, 180);
 
   function update(partial: Partial<SubtitleStyle>) {
     const next = { ...style, ...partial };
@@ -194,20 +198,49 @@ export default function SubtitleStylePanel({
           </div>
 
           {/* Preview text */}
-          <div className="bg-surface-800/50 rounded-lg p-4 flex items-center justify-center min-h-[60px]">
-            <div
-              style={{
-                fontFamily: style.fontFamily,
-                fontSize: `${Math.min(style.fontSize, 28)}px`,
-                color: style.textColor,
-                backgroundColor: style.showBackground
-                  ? `${style.backgroundColor}${Math.round(style.backgroundOpacity * 255).toString(16).padStart(2, "0")}`
-                  : "transparent",
-                padding: style.showBackground ? "4px 12px" : "0",
-                borderRadius: "6px",
-              }}
-            >
-              {t.previewText || "Preview subtitle text"}
+          <div
+            className="overflow-hidden rounded-xl border border-surface-700 min-h-[160px] p-4 flex items-center justify-center"
+            style={{
+              background:
+                "radial-gradient(circle at 20% 20%, rgba(244, 114, 182, 0.2), transparent 34%), radial-gradient(circle at 82% 18%, rgba(45, 212, 191, 0.16), transparent 28%), linear-gradient(180deg, rgba(24, 28, 38, 0.96) 0%, rgba(10, 12, 18, 0.98) 100%)",
+            }}
+          >
+            <div className="relative h-[180px] w-full max-w-[320px] overflow-hidden rounded-[18px] border border-white/8 bg-black/35 shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.08), transparent 26%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%)",
+                }}
+              />
+              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/8 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex justify-center" style={{ paddingBottom: `${previewLayout.bottomOffset}px` }}>
+                <div
+                  style={{
+                    maxWidth: `${previewLayout.maxWidth}px`,
+                    padding: `${previewLayout.paddingY}px ${previewLayout.paddingX}px`,
+                    borderRadius: `${previewLayout.borderRadius}px`,
+                    fontFamily: style.fontFamily,
+                    fontSize: `${previewLayout.fontSize}px`,
+                    lineHeight: previewLayout.lineHeight,
+                    letterSpacing: previewLayout.letterSpacing,
+                    color: style.textColor,
+                    background: previewLayout.background,
+                    border: previewLayout.border,
+                    boxShadow: previewLayout.boxShadow,
+                    textShadow: previewLayout.textShadow,
+                    backdropFilter: previewLayout.backdropFilter,
+                    WebkitBackdropFilter: previewLayout.backdropFilter,
+                  }}
+                  className="text-center font-semibold"
+                >
+                  {previewLayout.lines.map((line, index) => (
+                    <span key={`${line}-${index}`} className="block">
+                      {line}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
