@@ -1,5 +1,5 @@
 import type { Locale } from "./i18n";
-import type { PlanCode } from "@/db/schema";
+import type { PlanCode } from "@/lib/project-types";
 
 type TranslationMap = Record<string, string>;
 

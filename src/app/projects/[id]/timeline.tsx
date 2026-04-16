@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
-import type { Marker, VideoEdits, SubtitleStyle } from "@/db/schema";
+import type { Marker, VideoEdits, SubtitleStyle } from "@/lib/project-types";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Subtitle {

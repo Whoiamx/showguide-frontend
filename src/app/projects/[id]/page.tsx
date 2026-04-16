@@ -19,7 +19,7 @@ import {
   type SubtitleStyle,
   type Marker,
   type VideoEdits,
-} from "@/db/schema";
+} from "@/lib/project-types";
 import { useToast } from "@/lib/toast-context";
 import { useConfirm } from "@/lib/confirm-dialog";
 import { useUndoRedo } from "@/lib/use-undo-redo";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SubtitleStyle } from "@/db/schema";
+import type { SubtitleStyle } from "@/lib/project-types";
 
 const FONT_OPTIONS = [
   { value: "Inter", label: "Inter" },
