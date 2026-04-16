@@ -1,0 +1,527 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export type ProcessingStep =
+  | "uploading"
+  | "extracting"
+  | "analyzing"
+  | "generating";
+export type StepStatus = "completed" | "in_progress" | "pending" | "error";
+
+export interface ProcessingStepInfo {
+  id: ProcessingStep;
+  status: StepStatus;
+  error?: string;
+}
+
+interface ProcessingScreenProps {
+  steps: ProcessingStepInfo[];
+  currentStep: ProcessingStep;
+  projectTitle: string;
+  t: Record<string, string>;
+  notifyEnabled: boolean;
+  onNotifyToggle: (enabled: boolean) => void;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, "0")}:${seconds
+    .toString()
+    .padStart(2, "0")}`;
+}
+
+const STEP_META: Record<
+  ProcessingStep,
+  { icon: React.ReactNode; tKey: string; descKey: string; number: string }
+> = {
+  uploading: {
+    tKey: "processingUpload",
+    descKey: "processingUploadDesc",
+    number: "01",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+  },
+  extracting: {
+    tKey: "processingExtract",
+    descKey: "processingExtractDesc",
+    number: "02",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18M9 3v18" />
+      </svg>
+    ),
+  },
+  analyzing: {
+    tKey: "processingAnalyze",
+    descKey: "processingAnalyzeDesc",
+    number: "03",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+  },
+  generating: {
+    tKey: "processingGenerate",
+    descKey: "processingGenerateDesc",
+    number: "04",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 20h9" />
+        <path d="M16.376 3.622a1 1 0 013.002 3.002L7.368 18.635a2 2 0 01-.855.506l-2.872.838.838-2.872a2 2 0 01.506-.855L16.376 3.622z" />
+      </svg>
+    ),
+  },
+};
+
+function StepNode({
+  step,
+  status,
+  error,
+  isLast,
+  t,
+}: {
+  step: ProcessingStep;
+  status: StepStatus;
+  error?: string;
+  isLast: boolean;
+  t: Record<string, string>;
+}) {
+  const meta = STEP_META[step];
+
+  return (
+    <div className="flex gap-4">
+      {/* Vertical timeline node + connector */}
+      <div className="flex flex-col items-center">
+        {/* Circle node */}
+        <div
+          className={`relative w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-all duration-500 ${
+            status === "completed"
+              ? "bg-brand-500 text-white"
+              : status === "in_progress"
+                ? "bg-brand-500/20 text-brand-400 ring-2 ring-brand-400/50"
+                : status === "error"
+                  ? "bg-red-500/20 text-red-400 ring-2 ring-red-400/50"
+                  : "bg-surface-800 text-surface-500"
+          }`}
+        >
+          {status === "completed" ? (
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : status === "in_progress" ? (
+            <svg
+              className="animate-spin h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+              />
+            </svg>
+          ) : status === "error" ? (
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          ) : (
+            <span className="text-xs font-bold tabular-nums">
+              {meta.number}
+            </span>
+          )}
+          {/* Pulse ring for in_progress */}
+          {status === "in_progress" && (
+            <span
+              className="absolute inset-0 rounded-full animate-ping bg-brand-400/20"
+              style={{ animationDuration: "2s" }}
+            />
+          )}
+        </div>
+        {/* Connector line */}
+        {!isLast && (
+          <div
+            className={`w-px flex-1 min-h-[24px] transition-colors duration-500 ${
+              status === "completed" ? "bg-brand-500/40" : "bg-surface-700/50"
+            }`}
+          />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className={`pb-7 ${isLast ? "pb-0" : ""}`}>
+        <p
+          className={`text-base font-semibold leading-tight ${
+            status === "completed" || status === "in_progress"
+              ? "text-surface-100"
+              : status === "error"
+                ? "text-red-300"
+                : "text-surface-500"
+          }`}
+        >
+          {t[meta.tKey] || meta.tKey}
+        </p>
+        <p
+          className={`text-sm mt-1 leading-relaxed ${
+            status === "error" ? "text-red-400/80" : "text-surface-500"
+          }`}
+        >
+          {error || t[meta.descKey] || meta.descKey}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Notification Toggle ─────────────────────────────────────────────
+function NotificationToggle({
+  enabled,
+  onToggle,
+  t,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  t: Record<string, string>;
+}) {
+  const [supported, setSupported] = useState(false);
+  const [permissionState, setPermissionState] =
+    useState<NotificationPermission>("default");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setSupported(true);
+      setPermissionState(Notification.permission);
+    }
+  }, []);
+
+  if (!supported) return null;
+
+  const isBlocked = permissionState === "denied";
+
+  async function handleToggle() {
+    if (isBlocked) return;
+
+    if (enabled) {
+      onToggle(false);
+      return;
+    }
+
+    // Need to request permission
+    if (Notification.permission === "default") {
+      const result = await Notification.requestPermission();
+      setPermissionState(result);
+      if (result === "granted") {
+        onToggle(true);
+      }
+      // If denied, stays off — permissionState update will show blocked state
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      onToggle(true);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <button
+        onClick={handleToggle}
+        disabled={isBlocked}
+        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${
+          isBlocked
+            ? "bg-surface-800/50 text-surface-600 cursor-not-allowed"
+            : enabled
+              ? "bg-brand-500/15 text-brand-300 border border-brand-500/25 hover:bg-brand-500/20"
+              : "bg-surface-800/60 text-surface-400 border border-surface-700/50 hover:bg-surface-700/60 hover:text-surface-300"
+        }`}
+        title={isBlocked ? t.notificationsBlocked || "" : ""}
+      >
+        {/* Bell icon */}
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill={enabled ? "currentColor" : "none"}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={isBlocked ? "opacity-40" : ""}
+        >
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 01-3.46 0" />
+          {isBlocked && <line x1="1" y1="1" x2="23" y2="23" strokeWidth="2" />}
+        </svg>
+        {t.notifyWhenDone || "Notify me when done"}
+        {/* On/off indicator */}
+        {!isBlocked && (
+          <span
+            className={`w-2 h-2 rounded-full transition-colors ${enabled ? "bg-brand-400" : "bg-surface-600"}`}
+          />
+        )}
+      </button>
+      {isBlocked && (
+        <p className="text-xs text-surface-600 max-w-xs text-center">
+          {t.notificationsBlocked ||
+            "Notifications blocked. Enable them in your browser settings."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function ProcessingScreen({
+  steps,
+  currentStep,
+  projectTitle,
+  t,
+  notifyEnabled,
+  onNotifyToggle,
+}: ProcessingScreenProps) {
+  const [progress, setProgress] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const completedCount = steps.filter((s) => s.status === "completed").length;
+    const inProgressCount = steps.filter(
+      (s) => s.status === "in_progress",
+    ).length;
+    const target =
+      ((completedCount + inProgressCount * 0.4) / steps.length) * 100;
+
+    const timer = setTimeout(() => setProgress(target), 150);
+    return () => clearTimeout(timer);
+  }, [steps]);
+
+  useEffect(() => {
+    const hasActiveStep = steps.some((step) => step.status === "in_progress");
+    if (!hasActiveStep) return;
+
+    const timer = window.setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [steps]);
+
+  const currentMeta = STEP_META[currentStep];
+  const hasError = steps.some((s) => s.status === "error");
+  const showLongVideoHint =
+    !hasError && (currentStep === "generating" || elapsedSeconds >= 20);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[65vh] animate-fade-in">
+      {/* Header area */}
+      <div className="text-center mb-10">
+        {/* Pulsing icon */}
+        <div
+          className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6 ${
+            hasError
+              ? "bg-red-500/10 text-red-400"
+              : "bg-brand-500/10 text-brand-400 animate-pulse-glow"
+          }`}
+        >
+          {hasError ? (
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4M12 16h.01" />
+            </svg>
+          ) : (
+            currentMeta.icon
+          )}
+        </div>
+
+        <h2 className="text-xl font-bold text-surface-100 tracking-tight mb-1.5">
+          {hasError
+            ? t.processingFailed || "Processing failed"
+            : t[currentMeta.tKey] || currentMeta.tKey}
+        </h2>
+        <p className="text-base text-surface-400 max-w-sm mx-auto">
+          {hasError
+            ? ""
+            : t.processingVideoSubtitle ||
+              "Showguide is analyzing your video content..."}
+        </p>
+        {!hasError && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-200">
+            <span className="h-2 w-2 rounded-full bg-brand-400 animate-pulse" />
+            <span>
+              {t.processingStillWorking || "Still working in the background"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      {!hasError && (
+        <div className="w-full max-w-sm mb-10">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-medium text-brand-400 tabular-nums">
+              {Math.round(progress)}%
+            </span>
+            <span className="text-xs text-surface-500">
+              {t[currentMeta.descKey] || ""}
+            </span>
+          </div>
+          <div className="h-1.5 bg-surface-800 rounded-full overflow-hidden">
+            <div
+              className="relative h-full rounded-full transition-all duration-1000 ease-out overflow-hidden"
+              style={{
+                width: `${progress}%`,
+                background:
+                  "linear-gradient(90deg, var(--color-brand-600), var(--color-brand-400))",
+              }}
+            >
+              <div className="absolute inset-0 animate-pulse bg-white/10" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-surface-500">
+            <span>{t.processingElapsed || "Elapsed"}</span>
+            <span className="font-medium tabular-nums text-surface-300">
+              {formatElapsed(elapsedSeconds)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Notification toggle */}
+      {!hasError && (
+        <div className="w-full max-w-sm mb-6 flex justify-center">
+          <NotificationToggle
+            enabled={notifyEnabled}
+            onToggle={onNotifyToggle}
+            t={t}
+          />
+        </div>
+      )}
+
+      {/* Vertical step timeline */}
+      <div className="w-full max-w-sm" aria-live="polite" role="status">
+        {steps.map((step, i) => (
+          <StepNode
+            key={step.id}
+            step={step.id}
+            status={step.status}
+            error={step.error}
+            isLast={i === steps.length - 1}
+            t={t}
+          />
+        ))}
+      </div>
+
+      {!hasError && (
+        <div className="mt-6 flex w-full max-w-sm items-center justify-center">
+          <div className="inline-flex max-w-sm items-center gap-2 rounded-full border border-surface-800 bg-surface-900/70 px-3 py-2 text-xs text-surface-400 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.85)]">
+            <button
+              type="button"
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-300"
+              title={
+                `${t.processingStayHere || "You can stay on this screen. We'll open the editor automatically when everything is ready."} ${showLongVideoHint ? t.processingLongVideoHint || "Longer videos can take a bit more time to analyze and subtitle." : ""}`.trim()
+              }
+              aria-label={
+                `${t.processingStayHere || "You can stay on this screen. We'll open the editor automatically when everything is ready."} ${showLongVideoHint ? t.processingLongVideoHint || "Longer videos can take a bit more time to analyze and subtitle." : ""}`.trim()
+              }
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+            </button>
+            <span className="leading-none">
+              {showLongVideoHint
+                ? t.processingLongVideoHint ||
+                  "Longer videos can take a bit more time to analyze and subtitle."
+                : t.processingStayHere ||
+                  "You can stay on this screen. We'll open the editor automatically when everything is ready."}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

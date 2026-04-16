@@ -1,0 +1,8 @@
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.development.local
+.env.production.local
